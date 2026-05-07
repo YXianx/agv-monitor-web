@@ -1,0 +1,209 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* AGV 工业调度控制台主题 - 现代浅色科技风格 */
+:root {
+  /* 背景色系 */
+  --bg-app: #F8FAFC;
+  --bg-panel: #FFFFFF;
+  --bg-elevated: #F1F5F9;
+  
+  /* 边框色 */
+  --border-base: #E2E8F0;
+  
+  /* 品牌色系 */
+  --brand-primary: #2563EB;
+  --brand-cyan: #0891B2;
+  
+  /* 状态色 */
+  --state-success: #16A34A;
+  --state-warning: #D97706;
+  --state-danger: #DC2626;
+  
+  /* 文本色 */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  
+  /* 地图网格色 */
+  --map-grid: rgba(148, 163, 184, 0.20);
+  
+  /* shadcn 主题变量映射 */
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #2563EB;
+  
+  /* 图表色 */
+  --chart-1: #0891B2;
+  --chart-2: #2563EB;
+  --chart-3: #16A34A;
+  --chart-4: #D97706;
+  --chart-5: #DC2626;
+  
+  --radius: 0.5rem;
+  
+  /* 侧边栏 */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #2563EB;
+}
+
+@theme inline {
+  --font-sans: 'Inter', 'Geist', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Geist Mono', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* AGV 自定义工具类 */
+@layer utilities {
+  .agv-panel {
+    @apply bg-[var(--bg-panel)] border border-[var(--border-base)] rounded-lg shadow-sm;
+  }
+  
+  .agv-elevated {
+    @apply bg-[var(--bg-panel)] border border-[var(--border-base)] rounded-lg shadow-sm;
+  }
+  
+  .agv-text-primary {
+    @apply text-[var(--text-primary)];
+  }
+  
+  .agv-text-secondary {
+    @apply text-[var(--text-secondary)];
+  }
+  
+  .agv-text-muted {
+    @apply text-[var(--text-muted)];
+  }
+  
+  /* 状态标签样式 - 浅色主题优化 */
+  .status-online {
+    @apply px-2 py-1 rounded text-xs bg-[#0891B2]/10 text-[#0891B2] border border-[#0891B2]/20 font-medium;
+  }
+  
+  .status-offline {
+    @apply px-2 py-1 rounded text-xs bg-[#64748B]/10 text-[#64748B] border border-[#64748B]/20 font-medium;
+  }
+  
+  .status-warning {
+    @apply px-2 py-1 rounded text-xs bg-[#D97706]/10 text-[#D97706] border border-[#D97706]/20 font-medium;
+  }
+  
+  .status-danger {
+    @apply px-2 py-1 rounded text-xs bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-medium;
+  }
+  
+  .status-success {
+    @apply px-2 py-1 rounded text-xs bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/20 font-medium;
+  }
+  
+  .status-primary {
+    @apply px-2 py-1 rounded text-xs bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/20 font-medium;
+  }
+  
+  /* 脉冲动画 - 告警效果 */
+  @keyframes pulse-danger {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+    }
+  }
+  
+  .animate-pulse-danger {
+    animation: pulse-danger 2s infinite;
+  }
+  
+  /* KPI数字样式 */
+  .kpi-number {
+    font-family: 'JetBrains Mono', 'Geist Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* 滚动条样式 - 浅色版本 */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: var(--bg-elevated);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border-base);
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
