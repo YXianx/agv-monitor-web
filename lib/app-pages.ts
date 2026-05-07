@@ -7,6 +7,7 @@ export const appPages = [
   { id: 'docks', label: '月台管理' },
   { id: 'alerts', label: '告警中心' },
   { id: 'diagnostics', label: '通信诊断' },
+  { id: 'users', label: '用户管理' },
   { id: 'settings', label: '系统配置' },
   { id: 'history', label: '历史回放' },
 ] as const

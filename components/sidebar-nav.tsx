@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useAGVStore } from '@/lib/agv-store'
 import { appPages, type AppPage } from '@/lib/app-pages'
+import { userRoleLabels } from '@/lib/agv-types'
 import { cn } from '@/lib/utils'
 import {
   AlertTriangle,
@@ -18,6 +19,7 @@ import {
   MapPinned,
   Radio,
   Settings2,
+  ShieldUser,
   Truck,
   type LucideIcon,
   Warehouse,
@@ -32,6 +34,7 @@ const navIcons: Record<AppPage, LucideIcon> = {
   docks: Warehouse,
   alerts: AlertTriangle,
   diagnostics: Radio,
+  users: ShieldUser,
   settings: Settings2,
   history: History,
 }
@@ -48,35 +51,28 @@ export function SidebarNav() {
   return (
     <aside
       className={cn(
-        'h-screen flex flex-col bg-white border-r border-[#E2E8F0] transition-all duration-300',
+        'relative h-screen flex flex-col bg-white border-r border-[#E2E8F0] transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
-      <div className="h-16 flex items-center justify-between px-4 border-b border-[#E2E8F0]">
-        {!collapsed && (
-          <div className="flex items-center gap-3">
+      <div
+        className={cn(
+          'h-16 border-b border-[#E2E8F0]',
+          collapsed ? 'flex items-center justify-center px-2' : 'flex items-center px-4'
+        )}
+      >
+        {!collapsed ? (
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2563EB] to-[#0891B2] flex items-center justify-center">
               <Bot className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-[#0F172A]">AGV 调度系统</span>
+            <span className="font-semibold text-[#0F172A] truncate">AGV 调度系统</span>
           </div>
-        )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2563EB] to-[#0891B2] flex items-center justify-center mx-auto">
+        ) : (
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2563EB] to-[#0891B2] flex items-center justify-center">
             <Bot className="w-5 h-5 text-white" />
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className={cn(
-            'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9]',
-            collapsed && 'absolute -right-3 top-5 w-6 h-6 rounded-full bg-white border border-[#E2E8F0] shadow-sm'
-          )}
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </Button>
       </div>
 
       <nav className="flex-1 py-4 px-2 overflow-y-auto custom-scrollbar">
@@ -120,10 +116,28 @@ export function SidebarNav() {
       </nav>
 
       <div className="p-4 border-t border-[#E2E8F0]">
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          className={cn(
+            'mb-3 w-full rounded-xl text-[#64748B] transition-all duration-200 hover:bg-[#F8FAFC] hover:text-[#0F172A]',
+            collapsed
+              ? 'flex h-10 items-center justify-center border border-transparent'
+              : 'flex items-center justify-between px-3 py-2 text-sm'
+          )}
+          title={collapsed ? '展开导航' : '折叠导航'}
+        >
+          <div className={cn('flex items-center gap-2.5', collapsed && 'justify-center')}>
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {!collapsed && <span>收起导航</span>}
+          </div>
+          {!collapsed && <span className="text-xs text-[#94A3B8]">侧栏</span>}
+        </button>
+
         {!collapsed && currentUser && (
           <div className="mb-3 px-2">
             <p className="text-[#0F172A] text-sm font-medium">{currentUser.name}</p>
-            <p className="text-[#64748B] text-xs">{currentUser.role}</p>
+            <p className="text-[#64748B] text-xs">{userRoleLabels[currentUser.role]}</p>
           </div>
         )}
         <Button

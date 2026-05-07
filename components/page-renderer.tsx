@@ -12,6 +12,7 @@ import { MapManagementPage } from '@/components/pages/map-management-page'
 import { OverviewPage } from '@/components/pages/overview-page'
 import { SettingsPage } from '@/components/pages/settings-page'
 import { TasksPage } from '@/components/pages/tasks-page'
+import { UsersPage } from '@/components/pages/users-page'
 import { VehiclesPage } from '@/components/pages/vehicles-page'
 
 const pageRegistry: Record<AppPage, ComponentType> = {
@@ -23,6 +24,7 @@ const pageRegistry: Record<AppPage, ComponentType> = {
   docks: DocksPage,
   alerts: AlertsPage,
   diagnostics: DiagnosticsPage,
+  users: UsersPage,
   settings: SettingsPage,
   history: HistoryPage,
 }

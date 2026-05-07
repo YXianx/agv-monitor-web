@@ -2,8 +2,11 @@ import type {
   Alert,
   DiagnosticMessage,
   Dock,
+  PingTestResult,
   SystemStats,
+  SystemUser,
   Task,
+  UserRole,
   Vehicle,
   VehicleTaskInfo,
   VehicleTaskNode,
@@ -11,7 +14,7 @@ import type {
 } from './agv-types'
 import { getMockVehiclePosition } from './topology-map'
 
-const vehicleMaps = ['默认站点地图', '主仓库A区', '主仓库B区', '生产车间', '出货月台']
+const vehicleMaps = ['默认站点地图', '主仓库 A 区', '主仓库 B 区', '生产车间', '出货月台']
 const taskTypes = ['搬运', '取货', '放货', '充电', '回库']
 const taskLocations = ['A1-01', 'A1-02', 'A2-01', 'B1-01', 'B2-03', 'C1-05', '月台1', '月台2', '充电站']
 const agvActionTypes = ['agvmove', 'agvinsert', 'agvput', 'agvaction']
@@ -26,6 +29,10 @@ const diagnosticTopics = [
 
 function pickOne<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
+}
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
 function createTaskNodes(vehicleIndex: number, baseStatus: Vehicle['status']): VehicleTaskNode[] {
@@ -202,32 +209,23 @@ export function generateTasks(count: number = 100): Task[] {
       startedAt: ['active', 'finished', 'failed'].includes(status) ? new Date(createdAt.getTime() + 60000) : null,
       completedAt: status === 'finished' ? new Date(createdAt.getTime() + 300000) : null,
       progress: status === 'active' ? Math.floor(Math.random() * 100) : status === 'finished' ? 100 : 0,
-      description: `从${pickOne(taskLocations)}搬运至${pickOne(taskLocations)}`,
+      description: `从 ${pickOne(taskLocations)} 搬运至 ${pickOne(taskLocations)}`,
     }
   })
 }
 
 export function generateAlerts(count: number = 30): Alert[] {
   const levels: Alert['level'][] = ['info', 'warning', 'error', 'critical']
-  const titles = [
-    '车辆离线',
-    '电量过低',
-    '通信超时',
-    '传感器异常',
-    '急停触发',
-    '任务超时',
-    '路径阻塞',
-    '月台占用超时',
-  ]
+  const titles = ['车辆离线', '电量过低', '通信超时', '传感器异常', '急停触发', '任务超时', '路径阻塞', '月台占用超时']
   const messages = [
-    '车辆超过 30 秒未响应心跳',
-    '当前电量低于 20%，请安排充电',
-    'MQTT 连接超时，正在尝试重连',
-    '传感器返回数据异常，请检查现场设备',
-    '检测到急停按钮被触发',
-    '任务执行时间超过预期阈值',
-    '目标路径被其他车辆占用',
-    '月台已被占用过久，请人工确认',
+    '车辆超过 30 秒未响应心跳。',
+    '当前电量低于 20%，请安排充电。',
+    'MQTT 连接超时，正在尝试重连。',
+    '传感器返回数据异常，请检查现场设备。',
+    '检测到急停按钮被触发。',
+    '任务执行时间超过预期阈值。',
+    '目标路径被其他车辆占用。',
+    '月台已被占用过久，请人工确认。',
   ]
 
   return Array.from({ length: count }, (_, index) => {
@@ -324,4 +322,87 @@ export function generateVehicleDistribution(): { name: string; value: number; co
     { name: '离线', value: 12, color: '#94A3B8' },
     { name: '故障', value: 4, color: '#DC2626' },
   ]
+}
+
+export function createMockPingResult(vehicle: Vehicle): PingTestResult {
+  if (vehicle.status === 'offline') {
+    return {
+      vehicleId: vehicle.id,
+      vehicleName: vehicle.name,
+      targetIp: `192.168.10.${Number(vehicle.id.slice(-3))}`,
+      vehicleStatus: vehicle.status,
+      status: 'offline',
+      latencyMs: null,
+      jitterMs: null,
+      packetLoss: 100,
+      testedAt: new Date(),
+      note: '车辆当前离线，未收到心跳。',
+    }
+  }
+
+  const latencyMs = randomInt(vehicle.status === 'warning' ? 85 : 9, vehicle.status === 'warning' ? 180 : 68)
+  const jitterMs = randomInt(1, Math.max(4, Math.round(latencyMs / 6)))
+  const packetLoss = vehicle.status === 'error' ? randomInt(30, 80) : vehicle.status === 'warning' ? randomInt(5, 25) : randomInt(0, 3)
+  const status =
+    packetLoss >= 35 ? 'timeout' :
+    latencyMs >= 100 || packetLoss >= 8 ? 'warning' :
+    'success'
+
+  return {
+    vehicleId: vehicle.id,
+    vehicleName: vehicle.name,
+    targetIp: `192.168.10.${Number(vehicle.id.slice(-3))}`,
+    vehicleStatus: vehicle.status,
+    status,
+    latencyMs,
+    jitterMs,
+    packetLoss,
+    testedAt: new Date(),
+    note:
+      status === 'success'
+        ? '链路稳定，可正常投运。'
+        : status === 'warning'
+          ? '延迟抖动偏高，建议复测现场交换机或 AP。'
+          : '出现明显丢包，建议检查车辆网桥与现场覆盖。',
+  }
+}
+
+export function generatePingResults(vehicles: Vehicle[]): PingTestResult[] {
+  return vehicles.map((vehicle) => ({
+    vehicleId: vehicle.id,
+    vehicleName: vehicle.name,
+    targetIp: `192.168.10.${Number(vehicle.id.slice(-3))}`,
+    vehicleStatus: vehicle.status,
+    status: 'untested',
+    latencyMs: null,
+    jitterMs: null,
+    packetLoss: 0,
+    testedAt: null,
+    note: '等待执行连通性测试。',
+  }))
+}
+
+export function generateSystemUsers(): SystemUser[] {
+  const now = new Date()
+  const roles: UserRole[] = ['admin', 'operator', 'user']
+
+  return Array.from({ length: 9 }, (_, index) => {
+    const role = roles[index % roles.length]
+    return {
+      id: `USER-${String(index + 1).padStart(3, '0')}`,
+      username: role === 'admin' ? `admin${index + 1}` : role === 'operator' ? `operator${index + 1}` : `user${index + 1}`,
+      name: ['张敏', '李浩', '周洋', '刘倩', '陈锋', '王悦', '黄磊', '吴迪', '赵婷'][index],
+      role,
+      status: index === 7 ? 'disabled' : 'active',
+      phone: `1380000${String(100 + index)}`,
+      email: `agv${index + 1}@factory.local`,
+      department: role === 'admin' ? '信息化部' : role === 'operator' ? '调度中心' : '现场运维',
+      title: role === 'admin' ? '系统管理员' : role === 'operator' ? '调度操作员' : '运维专员',
+      remark: role === 'admin' ? '负责系统配置和账户管理' : role === 'operator' ? '负责日常调度操作' : '仅查看运行状态与基础报表',
+      password: '123456',
+      lastLoginAt: index === 7 ? null : new Date(now.getTime() - (index + 1) * 3600_000),
+      createdAt: new Date(now.getTime() - (index + 10) * 86400_000),
+      updatedAt: new Date(now.getTime() - index * 7200_000),
+    }
+  })
 }

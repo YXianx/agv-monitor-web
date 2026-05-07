@@ -4,6 +4,29 @@ export type AlertLevel = 'info' | 'warning' | 'error' | 'critical'
 export type DockStatus = 'available' | 'occupied' | 'disabled' | 'maintenance'
 export type VehicleTaskStatus = 'waiting' | 'active' | 'running' | 'finished' | 'failed' | 'canceled' | 'unknown'
 export type CameraSensorCode = 'front' | 'rear' | 'left' | 'right' | 'rearLeft' | 'rearRight' | 'fork'
+export type UserRole = 'admin' | 'operator' | 'user'
+export type SystemUserStatus = 'active' | 'disabled'
+export type PingTestStatus = 'untested' | 'testing' | 'success' | 'warning' | 'timeout' | 'offline'
+
+export const userRoleLabels: Record<UserRole, string> = {
+  admin: '管理员',
+  operator: '操作员',
+  user: '普通用户',
+}
+
+export const systemUserStatusLabels: Record<SystemUserStatus, string> = {
+  active: '启用',
+  disabled: '停用',
+}
+
+export const pingStatusLabels: Record<PingTestStatus, string> = {
+  untested: '未测试',
+  testing: '测试中',
+  success: '连通正常',
+  warning: '波动',
+  timeout: '超时',
+  offline: '离线',
+}
 
 export interface VehicleTaskNode {
   nodeId: string
@@ -180,4 +203,34 @@ export interface SiteProfile {
     apiEndpoint: string
     logLevel: string
   }
+}
+
+export interface SystemUser {
+  id: string
+  username: string
+  name: string
+  role: UserRole
+  status: SystemUserStatus
+  phone: string
+  email: string
+  department: string
+  title: string
+  remark: string
+  password: string
+  lastLoginAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface PingTestResult {
+  vehicleId: string
+  vehicleName: string
+  targetIp: string
+  vehicleStatus: VehicleStatus
+  status: PingTestStatus
+  latencyMs: number | null
+  jitterMs: number | null
+  packetLoss: number
+  testedAt: Date | null
+  note: string
 }

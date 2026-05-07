@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+  <defs>
+    <marker id="arrowSingle" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#35506b"/>
+    </marker>
+    <style>
+      .bg { fill: #f4f7fb; }
+      .panel { fill: #ffffff; stroke: #d6e0ea; stroke-width: 2; }
+      .zone { fill: #f7fbff; stroke: #9db4c8; stroke-width: 4; stroke-dasharray: 14 10; }
+      .road { fill: #dbe7f1; stroke: #9db4c8; stroke-width: 4; }
+      .dock { fill: #ffd79a; stroke: #cd9547; stroke-width: 4; }
+      .buffer { fill: #eef4f9; stroke: #c3d2df; stroke-width: 4; }
+      .conflict { fill: #ffd8d2; stroke: #d26c58; stroke-width: 4; stroke-dasharray: 10 8; }
+      .wait { fill: #d8efc9; stroke: #78a75d; stroke-width: 4; }
+      .agvA1 { fill: #2e7dd1; stroke: #174a82; stroke-width: 4; }
+      .agvA2 { fill: #8b5cf6; stroke: #5a31aa; stroke-width: 4; }
+      .path { fill: none; stroke: #35506b; stroke-width: 8; marker-end: url(#arrowSingle); }
+      .title { font: 700 34px 'Microsoft YaHei', 'PingFang SC', sans-serif; fill: #1c2a36; }
+      .subtitle { font: 600 24px 'Microsoft YaHei', 'PingFang SC', sans-serif; fill: #2c4255; }
+      .label { font: 600 22px 'Microsoft YaHei', 'PingFang SC', sans-serif; fill: #233340; }
+      .body { font: 500 19px 'Microsoft YaHei', 'PingFang SC', sans-serif; fill: #446076; }
+      .white { fill: #ffffff; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" class="bg"/>
+  <text x="800" y="58" text-anchor="middle" class="title">情况 1：一个月台两辆车的俯视调度示意图</text>
+
+  <rect x="70" y="100" width="980" height="820" rx="24" class="panel"/>
+  <rect x="1080" y="100" width="450" height="820" rx="24" class="panel"/>
+
+  <text x="560" y="145" text-anchor="middle" class="subtitle">现场俯视区域</text>
+  <text x="1305" y="145" text-anchor="middle" class="subtitle">调度说明</text>
+
+  <rect x="120" y="170" width="880" height="700" rx="24" class="zone"/>
+
+  <rect x="190" y="720" width="740" height="110" rx="18" class="road"/>
+  <text x="560" y="788" text-anchor="middle" class="label">主通道</text>
+
+  <rect x="455" y="120" width="270" height="95" rx="16" class="dock"/>
+  <text x="590" y="178" text-anchor="middle" class="label">月台 D1</text>
+
+  <rect x="450" y="255" width="280" height="115" rx="18" class="conflict"/>
+  <text x="590" y="324" text-anchor="middle" class="label">月台入口关键区</text>
+
+  <rect x="420" y="430" width="340" height="240" rx="20" class="buffer"/>
+  <text x="590" y="485" text-anchor="middle" class="label">月台前缓冲区</text>
+
+  <rect x="225" y="500" width="150" height="100" rx="16" class="wait"/>
+  <text x="300" y="560" text-anchor="middle" class="label">等待位 W1</text>
+
+  <rect x="530" y="540" width="110" height="62" rx="14" class="agvA1"/>
+  <text x="585" y="580" text-anchor="middle" class="label white">A1</text>
+
+  <rect x="760" y="757" width="110" height="62" rx="14" class="agvA2"/>
+  <text x="815" y="797" text-anchor="middle" class="label white">A2</text>
+
+  <path d="M 585 540 L 585 372" class="path"/>
+  <path d="M 760 788 C 675 788 560 760 375 595" class="path"/>
+
+  <text x="455" y="695" class="body">A1 已获准进入月台前缓冲区，并继续申请进入关键区。</text>
+  <text x="700" y="705" class="body">A2 暂不进入月台，先等待调度到 W1 或进入队列。</text>
+
+  <text x="1120" y="210" class="label">这个图重点表达什么</text>
+  <text x="1120" y="252" class="body">1. 月台 D1 一次只能允许 1 辆车进入作业位。</text>
+  <text x="1120" y="286" class="body">2. 月台前关键区也是共享资源，不能两车同时抢占。</text>
+  <text x="1120" y="320" class="body">3. 未获准放行的车辆不能停在主通道上，</text>
+  <text x="1145" y="348" class="body">必须进入等待位或排队区。</text>
+
+  <text x="1120" y="430" class="label">图中角色</text>
+  <rect x="1120" y="462" width="44" height="28" rx="8" class="agvA1"/>
+  <text x="1180" y="484" class="body">A1：已放行车辆</text>
+  <rect x="1120" y="512" width="44" height="28" rx="8" class="agvA2"/>
+  <text x="1180" y="534" class="body">A2：等待车辆</text>
+
+  <text x="1120" y="620" class="label">推荐调度动作</text>
+  <text x="1120" y="662" class="body">- 先让 A1 完成月台前关键段占用</text>
+  <text x="1120" y="696" class="body">- A2 进入等待位 W1 或保留在队列</text>
+  <text x="1120" y="730" class="body">- 月台释放后重新排序并放行下一辆</text>
+</svg>

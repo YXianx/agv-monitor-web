@@ -2,31 +2,53 @@
 
 import { create } from 'zustand'
 import { defaultAppPage, type AppPage } from './app-pages'
-import type { Vehicle, Task, Alert, Dock, SystemStats, MapFile, SiteProfile } from './agv-types'
+import type {
+  Alert,
+  Dock,
+  MapFile,
+  PingTestResult,
+  SiteProfile,
+  SystemStats,
+  SystemUser,
+  Task,
+  UserRole,
+  Vehicle,
+} from './agv-types'
 import { defaultMapFile, DEFAULT_MAP_ID } from './default-map'
 import { DEFAULT_SITE_PROFILE_ID } from './site-profile-constants'
-import { 
-  generateVehicles, 
-  generateTasks, 
-  generateAlerts, 
+import {
+  createMockPingResult,
+  generateAlerts,
   generateDocks,
-  generateSystemStats 
+  generatePingResults,
+  generateSystemStats,
+  generateSystemUsers,
+  generateTasks,
+  generateVehicles,
 } from './mock-data'
 
+type CurrentUserSession = {
+  id: string
+  username: string
+  name: string
+  role: UserRole
+}
+
+type UserDraft = Omit<SystemUser, 'id' | 'createdAt' | 'updatedAt' | 'lastLoginAt'> & {
+  lastLoginAt?: Date | null
+}
+
 interface AGVStore {
-  // 认证状态
   isAuthenticated: boolean
-  currentUser: { name: string; role: string } | null
+  currentUser: CurrentUserSession | null
   login: (username: string, password: string) => boolean
   logout: () => void
-  
-  // 车辆状态
+
   vehicles: Vehicle[]
   selectedVehicle: Vehicle | null
   selectVehicle: (id: string | null) => void
   updateVehicle: (id: string, updates: Partial<Vehicle>) => void
-  
-  // 任务状态
+
   tasks: Task[]
   selectedTask: Task | null
   selectTask: (id: string | null) => void
@@ -34,68 +56,201 @@ interface AGVStore {
   updateTask: (id: string, updates: Partial<Task>) => void
   cancelTask: (id: string) => void
   retryTask: (id: string) => void
-  
-  // 告警状态
+
   alerts: Alert[]
   acknowledgeAlert: (id: string) => void
   resolveAlert: (id: string) => void
   clearResolvedAlerts: () => void
-  
-  // 月台状态
+
   docks: Dock[]
   selectedDock: Dock | null
   selectDock: (id: string | null) => void
   updateDock: (id: string, updates: Partial<Dock>) => void
   releaseDock: (id: string) => void
-  
-  // 系统统计
+
   stats: SystemStats
   refreshStats: () => void
-  
-  // 页面状态
+
   currentPage: AppPage
   setCurrentPage: (page: AppPage) => void
-  
-  // 右侧面板状态
+
   rightPanelOpen: boolean
   rightPanelContent: 'vehicle' | 'task' | 'dock' | 'alert' | null
   openRightPanel: (content: 'vehicle' | 'task' | 'dock' | 'alert') => void
   closeRightPanel: () => void
-  
-  // 地图管理
+
   mapFiles: MapFile[]
   addMapFile: (mapFile: MapFile) => void
   updateMapFile: (id: string, updates: Partial<MapFile>) => void
   deleteMapFile: (id: string) => void
   mapManagementGuideOpen: boolean
   setMapManagementGuideOpen: (open: boolean) => void
-  
-  // 站点配置
+
   siteProfiles: SiteProfile[]
   activeProfile: SiteProfile | null
   addSiteProfile: (profile: SiteProfile) => void
   updateSiteProfile: (id: string, updates: Partial<SiteProfile>) => void
   deleteSiteProfile: (id: string) => void
   activateSiteProfile: (id: string) => void
-  
-  // 初始化数据
+
+  users: SystemUser[]
+  createUser: (draft: UserDraft) => void
+  updateUser: (id: string, updates: Partial<UserDraft>) => void
+  deleteUser: (id: string) => void
+
+  pingResults: PingTestResult[]
+  pingTesting: boolean
+  lastPingBatchAt: Date | null
+  runPingTestForVehicle: (vehicleId: string) => void
+  runPingTestForAllVehicles: () => void
+
   initializeData: () => void
 }
 
+function createDefaultSiteProfile(): SiteProfile {
+  return {
+    id: DEFAULT_SITE_PROFILE_ID,
+    name: '默认配置',
+    description: '系统默认站点配置文件',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    mapConfig: {
+      selectedMapId: DEFAULT_MAP_ID,
+      defaultZoom: 1,
+      showGrid: true,
+      showVehicleLabels: true,
+      autoRefresh: true,
+      refreshInterval: 1000,
+    },
+    dockConfig: {
+      occupyTimeout: 300,
+      queueWarningThreshold: 5,
+      autoRelease: false,
+    },
+    alertConfig: {
+      heartbeatTimeout: 30,
+      batteryLowThreshold: 20,
+      taskTimeout: 600,
+      enableSound: true,
+      enableDesktopNotification: true,
+    },
+    systemConfig: {
+      mqttBroker: '192.168.1.100',
+      mqttPort: 1883,
+      apiEndpoint: 'http://192.168.1.100:8080',
+      logLevel: 'info',
+    },
+  }
+}
+
+function buildSampleProfiles(defaultProfile: SiteProfile): SiteProfile[] {
+  return [
+    defaultProfile,
+    {
+      ...defaultProfile,
+      id: 'profile-siteA',
+      name: '站点A - 深圳仓库',
+      description: '深圳仓库现场配置',
+      isActive: false,
+      systemConfig: {
+        mqttBroker: '192.168.10.100',
+        mqttPort: 1883,
+        apiEndpoint: 'http://192.168.10.100:8080',
+        logLevel: 'info',
+      },
+    },
+    {
+      ...defaultProfile,
+      id: 'profile-siteB',
+      name: '站点B - 广州工厂',
+      description: '广州工厂现场配置',
+      isActive: false,
+      systemConfig: {
+        mqttBroker: '192.168.20.100',
+        mqttPort: 1883,
+        apiEndpoint: 'http://192.168.20.100:8080',
+        logLevel: 'warn',
+      },
+    },
+  ]
+}
+
+function recalculateStats(state: Pick<AGVStore, 'vehicles' | 'tasks' | 'alerts' | 'docks'>): SystemStats {
+  const totalVehicles = state.vehicles.length
+  const onlineVehicles = state.vehicles.filter((vehicle) => vehicle.status !== 'offline').length
+  const offlineVehicles = state.vehicles.filter((vehicle) => vehicle.status === 'offline').length
+  const warningVehicles = state.vehicles.filter((vehicle) => ['warning', 'error'].includes(vehicle.status)).length
+  const activeTasks = state.tasks.filter((task) => task.status === 'active').length
+  const queuedTasks = state.tasks.filter((task) => task.status === 'queued').length
+  const completedToday = state.tasks.filter((task) => task.status === 'finished').length
+  const failedToday = state.tasks.filter((task) => ['failed', 'timeout', 'cancelled'].includes(task.status)).length
+  const unresolvedAlerts = state.alerts.filter((alert) => !alert.resolvedAt)
+  const criticalAlerts = unresolvedAlerts.filter((alert) => alert.level === 'critical').length
+  const dockOccupied = state.docks.filter((dock) => dock.status === 'occupied').length
+
+  return {
+    totalVehicles,
+    onlineVehicles,
+    offlineVehicles,
+    warningVehicles,
+    activeTasks,
+    queuedTasks,
+    completedToday,
+    failedToday,
+    alertCount: unresolvedAlerts.length,
+    criticalAlerts,
+    dockOccupied,
+    dockTotal: state.docks.length,
+  }
+}
+
 export const useAGVStore = create<AGVStore>((set, get) => ({
-  // 认证状态
   isAuthenticated: false,
   currentUser: null,
   login: (username: string, password: string) => {
-    // 模拟登录验证
-    if (username && password) {
-      set({ 
-        isAuthenticated: true, 
-        currentUser: { name: username, role: '调度员' }
-      })
-      return true
-    }
-    return false
+    const normalizedUsername = username.trim()
+    const normalizedPassword = password.trim()
+    if (!normalizedUsername || !normalizedPassword) return false
+
+    const matchedUser = get().users.find(
+      (user) =>
+        user.status === 'active' &&
+        user.username.toLowerCase() === normalizedUsername.toLowerCase() &&
+        user.password === normalizedPassword
+    )
+
+    const fallbackRole: UserRole =
+      normalizedUsername.toLowerCase().includes('admin')
+        ? 'admin'
+        : normalizedUsername.toLowerCase().includes('op')
+          ? 'operator'
+          : 'user'
+
+    const sessionUser: CurrentUserSession = matchedUser
+      ? {
+          id: matchedUser.id,
+          username: matchedUser.username,
+          name: matchedUser.name,
+          role: matchedUser.role,
+        }
+      : {
+          id: `SESSION-${Date.now()}`,
+          username: normalizedUsername,
+          name: normalizedUsername,
+          role: fallbackRole,
+        }
+
+    set((state) => ({
+      isAuthenticated: true,
+      currentUser: sessionUser,
+      users: matchedUser
+        ? state.users.map((user) =>
+            user.id === matchedUser.id ? { ...user, lastLoginAt: new Date(), updatedAt: new Date() } : user
+          )
+        : state.users,
+    }))
+    return true
   },
   logout: () => {
     if (typeof window !== 'undefined') {
@@ -108,37 +263,36 @@ export const useAGVStore = create<AGVStore>((set, get) => ({
       currentPage: defaultAppPage,
       rightPanelOpen: false,
       rightPanelContent: null,
-      mapManagementGuideOpen: true
+      mapManagementGuideOpen: true,
     })
   },
-  
-  // 车辆状态
+
   vehicles: [],
   selectedVehicle: null,
   selectVehicle: (id) => {
-    const vehicle = id ? get().vehicles.find(v => v.id === id) || null : null
-    set({ 
+    const vehicle = id ? get().vehicles.find((item) => item.id === id) ?? null : null
+    set({
       selectedVehicle: vehicle,
-      rightPanelOpen: !!vehicle,
-      rightPanelContent: vehicle ? 'vehicle' : null
+      rightPanelOpen: Boolean(vehicle),
+      rightPanelContent: vehicle ? 'vehicle' : null,
     })
   },
   updateVehicle: (id, updates) => {
-    set(state => ({
-      vehicles: state.vehicles.map(v => v.id === id ? { ...v, ...updates } : v),
-      selectedVehicle: state.selectedVehicle?.id === id ? { ...state.selectedVehicle, ...updates } : state.selectedVehicle
+    set((state) => ({
+      vehicles: state.vehicles.map((vehicle) => (vehicle.id === id ? { ...vehicle, ...updates } : vehicle)),
+      selectedVehicle:
+        state.selectedVehicle?.id === id ? { ...state.selectedVehicle, ...updates } : state.selectedVehicle,
     }))
   },
-  
-  // 任务状态
+
   tasks: [],
   selectedTask: null,
   selectTask: (id) => {
-    const task = id ? get().tasks.find(t => t.id === id) || null : null
-    set({ 
+    const task = id ? get().tasks.find((item) => item.id === id) ?? null : null
+    set({
       selectedTask: task,
-      rightPanelOpen: !!task,
-      rightPanelContent: task ? 'task' : null
+      rightPanelOpen: Boolean(task),
+      rightPanelContent: task ? 'task' : null,
     })
   },
   createTask: (taskData) => {
@@ -148,238 +302,270 @@ export const useAGVStore = create<AGVStore>((set, get) => ({
       createdAt: new Date(),
       startedAt: null,
       completedAt: null,
-      progress: 0
+      progress: 0,
     }
-    set(state => ({ tasks: [newTask, ...state.tasks] }))
+    set((state) => ({ tasks: [newTask, ...state.tasks] }))
   },
   updateTask: (id, updates) => {
-    set(state => ({
-      tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
+    set((state) => ({
+      tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...updates } : task)),
     }))
   },
   cancelTask: (id) => {
-    set(state => ({
-      tasks: state.tasks.map(t => t.id === id ? { ...t, status: 'cancelled' as const } : t)
+    set((state) => ({
+      tasks: state.tasks.map((task) => (task.id === id ? { ...task, status: 'cancelled' } : task)),
     }))
   },
   retryTask: (id) => {
-    set(state => ({
-      tasks: state.tasks.map(t => 
-        t.id === id ? { ...t, status: 'queued' as const, progress: 0 } : t
-      )
+    set((state) => ({
+      tasks: state.tasks.map((task) => (task.id === id ? { ...task, status: 'queued', progress: 0 } : task)),
     }))
   },
-  
-  // 告警状态
+
   alerts: [],
   acknowledgeAlert: (id) => {
-    set(state => ({
-      alerts: state.alerts.map(a => a.id === id ? { ...a, acknowledged: true } : a)
+    set((state) => ({
+      alerts: state.alerts.map((alert) => (alert.id === id ? { ...alert, acknowledged: true } : alert)),
     }))
   },
   resolveAlert: (id) => {
-    set(state => ({
-      alerts: state.alerts.map(a => a.id === id ? { ...a, resolvedAt: new Date() } : a)
+    set((state) => ({
+      alerts: state.alerts.map((alert) => (alert.id === id ? { ...alert, resolvedAt: new Date() } : alert)),
     }))
   },
   clearResolvedAlerts: () => {
-    set(state => ({
-      alerts: state.alerts.filter(a => !a.resolvedAt)
+    set((state) => ({
+      alerts: state.alerts.filter((alert) => !alert.resolvedAt),
     }))
   },
-  
-  // 月台状态
+
   docks: [],
   selectedDock: null,
   selectDock: (id) => {
-    const dock = id ? get().docks.find(d => d.id === id) || null : null
-    set({ 
+    const dock = id ? get().docks.find((item) => item.id === id) ?? null : null
+    set({
       selectedDock: dock,
-      rightPanelOpen: !!dock,
-      rightPanelContent: dock ? 'dock' : null
+      rightPanelOpen: Boolean(dock),
+      rightPanelContent: dock ? 'dock' : null,
     })
   },
   updateDock: (id, updates) => {
-    set(state => ({
-      docks: state.docks.map(d => d.id === id ? { ...d, ...updates } : d)
+    set((state) => ({
+      docks: state.docks.map((dock) => (dock.id === id ? { ...dock, ...updates } : dock)),
     }))
   },
   releaseDock: (id) => {
-    set(state => ({
-      docks: state.docks.map(d => 
-        d.id === id ? { 
-          ...d, 
-          status: 'available' as const, 
-          currentVehicle: null, 
-          currentTask: null 
-        } : d
-      )
+    set((state) => ({
+      docks: state.docks.map((dock) =>
+        dock.id === id
+          ? {
+              ...dock,
+              status: 'available',
+              currentVehicle: null,
+              currentTask: null,
+            }
+          : dock
+      ),
     }))
   },
-  
-  // 系统统计
+
   stats: generateSystemStats(),
   refreshStats: () => {
-    set({ stats: generateSystemStats() })
+    set((state) => ({
+      stats: recalculateStats(state),
+    }))
   },
-  
-  // 页面状态
+
   currentPage: defaultAppPage,
   setCurrentPage: (page) => {
     set({ currentPage: page, rightPanelOpen: false, rightPanelContent: null })
   },
-  
-  // 右侧面板状态
+
   rightPanelOpen: false,
   rightPanelContent: null,
-  openRightPanel: (content) => {
-    set({ rightPanelOpen: true, rightPanelContent: content })
-  },
-  closeRightPanel: () => {
-    set({ rightPanelOpen: false, rightPanelContent: null })
-  },
-  
-  // 地图管理
+  openRightPanel: (content) => set({ rightPanelOpen: true, rightPanelContent: content }),
+  closeRightPanel: () => set({ rightPanelOpen: false, rightPanelContent: null }),
+
   mapFiles: [],
   addMapFile: (mapFile) => {
-    set(state => ({ mapFiles: [...state.mapFiles, mapFile] }))
+    set((state) => ({ mapFiles: [...state.mapFiles, mapFile] }))
   },
   updateMapFile: (id, updates) => {
-    set(state => ({
-      mapFiles: state.mapFiles.map(m => m.id === id ? { ...m, ...updates, updatedAt: new Date() } : m)
+    set((state) => ({
+      mapFiles: state.mapFiles.map((mapFile) =>
+        mapFile.id === id ? { ...mapFile, ...updates, updatedAt: new Date() } : mapFile
+      ),
     }))
   },
   deleteMapFile: (id) => {
-    set(state => ({ mapFiles: state.mapFiles.filter(m => m.id !== id) }))
+    set((state) => ({ mapFiles: state.mapFiles.filter((mapFile) => mapFile.id !== id) }))
   },
   mapManagementGuideOpen: true,
-  setMapManagementGuideOpen: (open) => {
-    set({ mapManagementGuideOpen: open })
-  },
-  
-  // 站点配置
+  setMapManagementGuideOpen: (open) => set({ mapManagementGuideOpen: open }),
+
   siteProfiles: [],
   activeProfile: null,
   addSiteProfile: (profile) => {
-    set(state => ({ siteProfiles: [...state.siteProfiles, profile] }))
+    set((state) => ({ siteProfiles: [...state.siteProfiles, profile] }))
   },
   updateSiteProfile: (id, updates) => {
-    set(state => ({
-      siteProfiles: state.siteProfiles.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date() } : p),
-      activeProfile: state.activeProfile?.id === id ? { ...state.activeProfile, ...updates, updatedAt: new Date() } : state.activeProfile
+    set((state) => ({
+      siteProfiles: state.siteProfiles.map((profile) =>
+        profile.id === id ? { ...profile, ...updates, updatedAt: new Date() } : profile
+      ),
+      activeProfile:
+        state.activeProfile?.id === id
+          ? { ...state.activeProfile, ...updates, updatedAt: new Date() }
+          : state.activeProfile,
     }))
   },
   deleteSiteProfile: (id) => {
-    if (id === DEFAULT_SITE_PROFILE_ID) {
-      return
-    }
+    if (id === DEFAULT_SITE_PROFILE_ID) return
 
-    set(state => {
-      const remainingProfiles = state.siteProfiles.filter(p => p.id !== id)
+    set((state) => {
+      const remainingProfiles = state.siteProfiles.filter((profile) => profile.id !== id)
       const fallbackActiveProfile =
-        remainingProfiles.find(profile => profile.id === DEFAULT_SITE_PROFILE_ID) ??
-        remainingProfiles[0] ??
-        null
+        remainingProfiles.find((profile) => profile.id === DEFAULT_SITE_PROFILE_ID) ?? remainingProfiles[0] ?? null
       const nextActiveProfile =
         state.activeProfile?.id === id
           ? fallbackActiveProfile
-          : remainingProfiles.find(profile => profile.id === state.activeProfile?.id) ?? fallbackActiveProfile
+          : remainingProfiles.find((profile) => profile.id === state.activeProfile?.id) ?? fallbackActiveProfile
 
       return {
-        siteProfiles: remainingProfiles.map(profile => ({
+        siteProfiles: remainingProfiles.map((profile) => ({
           ...profile,
-          isActive: profile.id === nextActiveProfile?.id
+          isActive: profile.id === nextActiveProfile?.id,
         })),
-        activeProfile: nextActiveProfile
+        activeProfile: nextActiveProfile,
       }
     })
   },
   activateSiteProfile: (id) => {
-    const profile = get().siteProfiles.find(p => p.id === id)
-    if (profile) {
-      set(state => ({
-        siteProfiles: state.siteProfiles.map(p => ({ ...p, isActive: p.id === id })),
-        activeProfile: profile
-      }))
-    }
+    const profile = get().siteProfiles.find((item) => item.id === id)
+    if (!profile) return
+
+    set((state) => ({
+      siteProfiles: state.siteProfiles.map((item) => ({ ...item, isActive: item.id === id })),
+      activeProfile: { ...profile, isActive: true },
+    }))
   },
-  
-  // 初始化数据
-  initializeData: () => {
-    const defaultProfile: SiteProfile = {
-      id: DEFAULT_SITE_PROFILE_ID,
-      name: '默认配置',
-      description: '系统默认配置文件',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      mapConfig: {
-        selectedMapId: DEFAULT_MAP_ID,
-        defaultZoom: 1,
-        showGrid: true,
-        showVehicleLabels: true,
-        autoRefresh: true,
-        refreshInterval: 1000
-      },
-      dockConfig: {
-        occupyTimeout: 300,
-        queueWarningThreshold: 5,
-        autoRelease: false
-      },
-      alertConfig: {
-        heartbeatTimeout: 30,
-        batteryLowThreshold: 20,
-        taskTimeout: 600,
-        enableSound: true,
-        enableDesktopNotification: true
-      },
-      systemConfig: {
-        mqttBroker: '192.168.1.100',
-        mqttPort: 1883,
-        apiEndpoint: 'http://192.168.1.100:8080',
-        logLevel: 'info'
-      }
+
+  users: generateSystemUsers(),
+  createUser: (draft) => {
+    const now = new Date()
+    const nextUser: SystemUser = {
+      ...draft,
+      id: `USER-${String(get().users.length + 1).padStart(3, '0')}`,
+      lastLoginAt: draft.lastLoginAt ?? null,
+      createdAt: now,
+      updatedAt: now,
     }
-    
-    const sampleProfiles: SiteProfile[] = [
-      defaultProfile,
-      {
-        ...defaultProfile,
-        id: 'profile-siteA',
-        name: '地点A - 深圳仓库',
-        description: '深圳仓库现场配置',
-        isActive: false,
-        systemConfig: {
-          mqttBroker: '192.168.10.100',
-          mqttPort: 1883,
-          apiEndpoint: 'http://192.168.10.100:8080',
-          logLevel: 'info'
-        }
-      },
-      {
-        ...defaultProfile,
-        id: 'profile-siteB',
-        name: '地点B - 广州工厂',
-        description: '广州工厂现场配置',
-        isActive: false,
-        systemConfig: {
-          mqttBroker: '192.168.20.100',
-          mqttPort: 1883,
-          apiEndpoint: 'http://192.168.20.100:8080',
-          logLevel: 'warn'
-        }
-      }
-    ]
-    
+    set((state) => ({ users: [nextUser, ...state.users] }))
+  },
+  updateUser: (id, updates) => {
+    set((state) => ({
+      users: state.users.map((user) =>
+        user.id === id
+          ? {
+              ...user,
+              ...updates,
+              updatedAt: new Date(),
+            }
+          : user
+      ),
+      currentUser:
+        state.currentUser?.id === id
+          ? {
+              ...state.currentUser,
+              name: updates.name ?? state.currentUser.name,
+              username: updates.username ?? state.currentUser.username,
+              role: updates.role ?? state.currentUser.role,
+            }
+          : state.currentUser,
+    }))
+  },
+  deleteUser: (id) => {
+    set((state) => ({
+      users: state.users.filter((user) => user.id !== id),
+      currentUser: state.currentUser?.id === id ? null : state.currentUser,
+      isAuthenticated: state.currentUser?.id === id ? false : state.isAuthenticated,
+      currentPage: state.currentUser?.id === id ? defaultAppPage : state.currentPage,
+    }))
+  },
+
+  pingResults: [],
+  pingTesting: false,
+  lastPingBatchAt: null,
+  runPingTestForVehicle: (vehicleId) => {
+    const vehicle = get().vehicles.find((item) => item.id === vehicleId)
+    if (!vehicle) return
+
+    set((state) => ({
+      pingResults: state.pingResults.map((result) =>
+        result.vehicleId === vehicleId
+          ? {
+              ...result,
+              status: 'testing',
+              latencyMs: null,
+              jitterMs: null,
+              packetLoss: 0,
+              note: '正在发送测试包...',
+            }
+          : result
+      ),
+    }))
+
+    window.setTimeout(() => {
+      set((state) => ({
+        pingResults: state.pingResults.map((result) =>
+          result.vehicleId === vehicleId ? createMockPingResult(vehicle) : result
+        ),
+        lastPingBatchAt: new Date(),
+      }))
+    }, 650)
+  },
+  runPingTestForAllVehicles: () => {
+    const vehicles = get().vehicles
+    set((state) => ({
+      pingTesting: true,
+      pingResults: state.pingResults.map((result) => ({
+        ...result,
+        status: 'testing',
+        latencyMs: null,
+        jitterMs: null,
+        packetLoss: 0,
+        note: '正在批量发送测试包...',
+      })),
+    }))
+
+    window.setTimeout(() => {
+      set({
+        pingResults: vehicles.map((vehicle) => createMockPingResult(vehicle)),
+        pingTesting: false,
+        lastPingBatchAt: new Date(),
+      })
+    }, 1100)
+  },
+
+  initializeData: () => {
+    const vehicles = generateVehicles(50)
+    const tasks = generateTasks(100)
+    const alerts = generateAlerts(30)
+    const docks = generateDocks(24)
+    const defaultProfile = createDefaultSiteProfile()
+    const siteProfiles = buildSampleProfiles(defaultProfile)
+
     set({
-      vehicles: generateVehicles(50),
-      tasks: generateTasks(100),
-      alerts: generateAlerts(30),
-      docks: generateDocks(24),
-      stats: generateSystemStats(),
+      vehicles,
+      tasks,
+      alerts,
+      docks,
+      stats: recalculateStats({ vehicles, tasks, alerts, docks }),
       mapFiles: [defaultMapFile],
-      siteProfiles: sampleProfiles,
-      activeProfile: defaultProfile
+      siteProfiles,
+      activeProfile: defaultProfile,
+      pingResults: generatePingResults(vehicles),
+      users: generateSystemUsers(),
     })
-  }
+  },
 }))
